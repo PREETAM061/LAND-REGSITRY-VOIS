@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Land Registry DApp</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #ffffff;
+            color: #333333;
+            margin: 0;
+            padding: 20px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            cursor: pointer;
+            margin-top: 10px;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        input {
+            padding: 12px;
+            margin: 8px 0;
+            width: 100%;
+            max-width: 400px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            background-color: #f8f9fa;
+            color: #333333;
+        }
+        .message {
+            margin-top: 10px;
+            font-weight: bold;
+            color: #e74c3c;
+        }
+        .success {
+            color: #2ecc71;
+        }
+        .dark-mode {
+            background-color: #121212;
+            color: #ffffff;
+        }
+        .dark-mode h2 {
+            color: #76b900; /* NVIDIA Green */
+        }
+        .dark-mode input {
+            background-color: #1a1a1a;
+            color: #ffffff;
+            border-color: #333;
+        }
+        .dark-mode button {
+            background-color: #76b900; /* NVIDIA Green */
+        }
+        .instructions {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .dark-mode .container {
+            background-color: #1a1a1a;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        .section h3 {
+            color: #3498db;
+            margin-bottom: 15px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr;  /* Ensures each section takes up the full width */
+            gap: 20px;
+        }
+        .toggle-container {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 20px;
+        }
+        .toggle-label {
+            margin-right: 10px;
+            font-size: 14px;
+            color: #666;
+        }
+        .dark-mode .toggle-label {
+            color: #999;
+        }
+        .mode-toggle {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+        .dark-mode .mode-toggle {
+            color: #999;
+        }
+        .land-details {
+            font-size: 1.2em;
+            color: #333;
+            margin-top: 10px;
+        }
+        .dark-mode .land-details {
+            color: #e74c3c; /* Dark mode styling */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="toggle-container">
+            <button class="mode-toggle" onclick="toggleDarkMode()">
+                <i class="fas fa-moon"></i>
+            </button>
+        </div>
+        <h2>Land Registry DApp</h2>
+        <div class="instructions">
+            <p>Welcome to the Land Registry DApp! Follow these steps to use the app:</p>
+            <ul style="list-style-type: none; padding: 0;">
+                <li>• Connect your MetaMask wallet using the button below.</li>
+                <li>• Register land by filling in the Land ID, Location, and Area.</li>
+                <li>• Transfer land ownership by entering the Land ID and the new owner's Ethereum address.</li>
+                <li>• View land details by entering the Land ID.</li>
+            </ul>
+        </div>
+
+        <button onclick="connectWallet()">Connect MetaMask</button>
+        <p id="walletAddress">MetaMask not connected.</p>
+        <p id="connectionMessage" class="message"></p>
+
+        <div class="grid">
+            <div class="section">
+                <h3>Register Land</h3>
+                <input type="number" id="landId" placeholder="Land ID">
+                <input type="text" id="location" placeholder="Location">
+                <input type="number" id="area" placeholder="Area (in sq. meters)">
+                <button onclick="registerLand()">Register Land</button>
+                <p id="registerMessage" class="message"></p>
+            </div>
+
+            <div class="section">
+                <h3>Transfer Ownership</h3>
+                <input type="number" id="transferId" placeholder="Land ID">
+                <input type="text" id="newOwner" placeholder="New Owner Address (0x...)">
+                <button onclick="transferOwnership()">Transfer Ownership</button>
+                <p id="transferMessage" class="message"></p>
+            </div>
+
+            <div class="section">
+                <h3>Get Land Details</h3>
+                <input type="number" id="getLandId" placeholder="Land ID">
+                <button onclick="getLandDetails()">Get Details</button>
+                <div id="landDetails" class="land-details"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const contractAddress = "0x80Ea3c699856dE88aeE0562A7Faf4e30E58d5e09";
+        const abi = [
+            {
+                "inputs": [
+                    {"internalType": "uint256", "name": "_id", "type": "uint256"},
+                    {"internalType": "string", "name": "_location", "type": "string"},
+                    {"internalType": "uint256", "name": "_area", "type": "uint256"}
+                ],
+                "name": "registerLand",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {"internalType": "uint256", "name": "_id", "type": "uint256"},
+                    {"internalType": "address", "name": "_newOwner", "type": "address"}
+                ],
+                "name": "transferOwnership",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {"internalType": "uint256", "name": "_id", "type": "uint256"}
+                ],
+                "name": "getLand",
+                "outputs": [
+                    {"internalType": "uint256", "name": "", "type": "uint256"},
+                    {"internalType": "string", "name": "", "type": "string"},
+                    {"internalType": "uint256", "name": "", "type": "uint256"},
+                    {"internalType": "address", "name": "", "type": "address"},
+                    {"internalType": "bool", "name": "", "type": "bool"}
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            }
+        ];
+        let signer, contract;
+
+        // Connect to MetaMask
+        async function connectWallet() {
+            try {
+                if (!window.ethereum) {
+                    showMessage("connectionMessage", "MetaMask not detected. Please install MetaMask.", "error");
+                    return;
+                }
+
+                // Request account access
+                await window.ethereum.request({ method: "eth_requestAccounts" });
+
+                // Create provider and signer
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                signer = provider.getSigner();
+                const address = await signer.getAddress();
+                contract = new ethers.Contract(contractAddress, abi, signer);
+
+                document.getElementById("walletAddress").textContent = `Connected Address: ${address}`;
+                showMessage("connectionMessage", "Wallet connected successfully!", "success");
+            } catch (error) {
+                console.error(error);
+                showMessage("connectionMessage", "Failed to connect wallet. Please try again.", "error");
+            }
+        }
+
+        // Register land function
+        async function registerLand() {
+            const id = document.getElementById("landId").value;
+            const location = document.getElementById("location").value;
+            const area = document.getElementById("area").value;
+
+            if (!id || !location || !area) {
+                showMessage("registerMessage", "Please fill all the fields.", "error");
+                return;
+            }
+
+            try {
+                const tx = await contract.registerLand(id, location, area);
+                await tx.wait();
+                showMessage("registerMessage", "Land registered successfully!", "success");
+            } catch (error) {
+                console.error(error);
+                showMessage("registerMessage", "Failed to register land. Please try again.", "error");
+            }
+        }
+
+        // Transfer ownership function
+        async function transferOwnership() {
+            const id = document.getElementById("transferId").value;
+            const newOwner = document.getElementById("newOwner").value;
+
+            if (!id || !newOwner) {
+                showMessage("transferMessage", "Please fill all the fields.", "error");
+                return;
+            }
+
+            try {
+                const tx = await contract.transferOwnership(id, newOwner);
+                await tx.wait();
+                showMessage("transferMessage", "Ownership transferred successfully!", "success");
+            } catch (error) {
+                console.error(error);
+                showMessage("transferMessage", "Connect to Metamask if not connected.Failed to transfer ownership. Please try again with correct details. ", "error");
+            }
+        }
+
+        // Get land details function
+        async function getLandDetails() {
+            const id = document.getElementById("getLandId").value;
+
+            if (!id) {
+                showMessage("landDetails", "Please enter a Land ID.", "error");
+                return;
+            }
+
+            try {
+                const land = await contract.getLand(id);
+                if (land[4]) {
+                    const details = `
+                        <strong>Land ID:</strong> ${land[0]}<br>
+                        <strong>Location:</strong> ${land[1]}<br>
+                        <strong>Area:</strong> ${land[2]} sq. meters<br>
+                        <strong>Owner:</strong> ${land[3]}<br>
+                        <strong>Registered:</strong> Yes
+                    `;
+                    document.getElementById("landDetails").innerHTML = details;
+                } else {
+                    showMessage("landDetails", "Land not registered or doesn't exist.", "error");
+                }
+            } catch (error) {
+                console.error(error);
+                
+                showMessage("landDetails", "Connect to Metamask if not connected.If its connected then no land is registered with this land id. Failed to retrieve land details.  ", "error");
+            }
+        }
+
+        // Show messages
+        function showMessage(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `message ${type === "success" ? "success" : ""}`;
+        }
+
+        // Dark Mode Toggle
+        function toggleDarkMode() {
+            document.body.classList.toggle("dark-mode");
+        }
+    </script>
+</body>
+</html>
